@@ -2,24 +2,28 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const helmet = require('helmet'); // Importado para seguridad de cabeceras
+const helmet = require('helmet');
 require('dotenv').config();
+
+// 1. IMPORTAR RUTAS (Antes de inicializar app)
 const comentarioRoutes = require('./src/routes/comentarioRoutes');
-app.use('/api', comentarioRoutes);
+
+// 2. INICIALIZAR APP
 const app = express();
 
 // ============ CONFIGURACIÓN DE SEGURIDAD ============
 
-// 1. Helmet: Protege la app configurando varias cabeceras HTTP (oculta que usas Express, evita XSS, etc.)
+// Helmet para proteger cabeceras HTTP
 app.use(helmet());
 
-// 2. CORS Restringido: Solo permite peticiones desde tu frontend de Railway
+// Configuración de CORS
 const corsOptions = {
-  origin: 'https://frontend-le-os-production.up.railway.app', // Tu URL de producción
+  origin: 'https://frontend-le-os-production.up.railway.app', 
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
 
+// Middleware para leer JSON
 app.use(express.json());
 
 // ============ CONEXIÓN A BASE DE DATOS ============
@@ -74,7 +78,7 @@ const seedUsers = async () => {
           nombre: 'Administrador'
         }
       ]);
-      console.log('✅ Usuarios creados');
+      console.log('✅ Usuarios de prueba creados');
     }
   } catch (err) {
     console.error('Error seeding users:', err);
@@ -87,6 +91,9 @@ mongoose.connection.once('open', () => {
 
 // ============ RUTAS ============
 
+// Usar las rutas de comentarios importadas
+app.use('/api', comentarioRoutes);
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', service: 'Leños Rellenos API' });
 });
@@ -96,135 +103,52 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ detail: 'Usuario no encontrado' });
-    }
+    if (!user) return res.status(401).json({ detail: 'Usuario no encontrado' });
+    
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ detail: 'Contraseña incorrecta' });
-    }
+    if (!isMatch) return res.status(401).json({ detail: 'Contraseña incorrecta' });
+    
     res.json({
       success: true,
-      user: {
-        email: user.email,
-        role: user.role,
-        nombre: user.nombre
-      }
+      user: { email: user.email, role: user.role, nombre: user.nombre }
     });
   } catch (error) {
-    console.error('Login error:', error);
     res.status(500).json({ detail: 'Error del servidor' });
   }
 });
 
-// CREAR PEDIDO
+// RUTAS DE PEDIDOS
 app.post('/api/pedidos', async (req, res) => {
   try {
     const nuevoPedido = new Pedido(req.body);
     await nuevoPedido.save();
-    res.status(201).json({
-      id: nuevoPedido._id,
-      ...nuevoPedido.toObject()
-    });
+    res.status(201).json({ id: nuevoPedido._id, ...nuevoPedido.toObject() });
   } catch (error) {
     res.status(400).json({ mensaje: error.message });
   }
 });
 
-// OBTENER TODOS LOS PEDIDOS
 app.get('/api/pedidos', async (req, res) => {
   try {
     const pedidos = await Pedido.find().sort({ fecha: -1 });
-    const result = pedidos.map(p => ({
-      id: p._id,
-      nombre: p.nombre,
-      apellidos: p.apellidos,
-      telefono: p.telefono,
-      direccion: p.direccion,
-      items: p.items,
-      totalPagar: p.totalPagar,
-      estado: p.estado,
-      userEmail: p.userEmail,
-      fecha: p.fecha
-    }));
-    res.json(result);
+    res.json(pedidos.map(p => ({ id: p._id, ...p.toObject() })));
   } catch (error) {
     res.status(500).json({ mensaje: error.message });
   }
 });
 
-// OBTENER PEDIDO POR ID
-app.get('/api/pedidos/:id', async (req, res) => {
-  try {
-    const pedido = await Pedido.findById(req.params.id);
-    if (!pedido) {
-      return res.status(404).json({ mensaje: 'Pedido no encontrado' });
-    }
-    res.json({
-      id: pedido._id,
-      nombre: pedido.nombre,
-      apellidos: pedido.apellidos,
-      telefono: pedido.telefono,
-      direccion: pedido.direccion,
-      items: pedido.items,
-      totalPagar: pedido.totalPagar,
-      estado: pedido.estado,
-      userEmail: pedido.userEmail,
-      fecha: pedido.fecha
-    });
-  } catch (error) {
-    res.status(400).json({ mensaje: 'ID inválido' });
-  }
-});
-
-// ACTUALIZAR ESTADO DEL PEDIDO
-app.patch('/api/pedidos/:id', async (req, res) => {
-  try {
-    const { estado } = req.body;
-    const pedido = await Pedido.findByIdAndUpdate(
-      req.params.id,
-      { estado },
-      { new: true }
-    );
-    if (!pedido) {
-      return res.status(404).json({ mensaje: 'Pedido no encontrado' });
-    }
-    res.json({
-      id: pedido._id,
-      nombre: pedido.nombre,
-      apellidos: pedido.apellidos,
-      telefono: pedido.telefono,
-      direccion: pedido.direccion,
-      items: pedido.items,
-      totalPagar: pedido.totalPagar,
-      estado: pedido.estado,
-      userEmail: pedido.userEmail,
-      fecha: pedido.fecha
-    });
-  } catch (error) {
-    res.status(400).json({ mensaje: error.message });
-  }
-});
-
-// ELIMINAR PEDIDO
-app.delete('/api/pedidos/:id', async (req, res) => {
-  try {
-    const result = await Pedido.findByIdAndDelete(req.params.id);
-    if (!result) {
-      return res.status(404).json({ mensaje: 'Pedido no encontrado' });
-    }
-    res.json({ mensaje: 'Pedido eliminado' });
-  } catch (error) {
-    res.status(500).json({ mensaje: error.message });
-  }
-});
-
-// Endpoint Seguro para Comentarios
-app.post('/comentarios', (req, res) => {
+// Endpoint rápido para probar comentarios (en caso de que la ruta externa falle)
+app.post('/comentarios-test', (req, res) => {
   const { texto } = req.body;
   console.log("Comentario recibido:", texto);
-  res.json({ texto }); // Lo regresamos para probar el saneamiento en el frontend
+  res.json({ texto, status: "recibido" });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Servidor con Helmet y CORS seguro en puerto ${PORT}`));
+// ============ ENCENDIDO DEL SERVIDOR ============
+
+// Railway inyecta el puerto automáticamente en process.env.PORT
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor activo en puerto ${PORT}`);
+});
