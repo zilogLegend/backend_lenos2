@@ -7,30 +7,44 @@ require('dotenv').config();
 
 // 1. IMPORTAR RUTAS
 const comentarioRoutes = require('./src/routes/comentarioRoutes');
-const usuarioRoutes = require('./src/routes/usuarios'); // Nueva ruta de Práctica 2
+const usuarioRoutes = require('./src/routes/usuarios');
 
 // 2. INICIALIZAR APP
 const app = express();
 
-// ============ CONFIGURACIÓN DE SEGURIDAD ============
-
+// ============ CONFIGURACIÓN DE SEGURIDAD (Capa 1) ============
 app.use(helmet());
 
 const corsOptions = {
-  origin: ['https://frontend-le-os-production.up.railway.app', 'http://localhost:5173'], // Añadido localhost para tus pruebas
+  // Asegúrate de que esta URL coincida con tu frontend en Railway o Vercel
+  origin: ['https://frontend-le-os-production.up.railway.app', 'http://localhost:5173'],
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
 app.use(express.json());
 
-// ============ CONEXIÓN A BASE DE DATOS ============
+// ============ MIDDLEWARE API KEY (Capa 2 - Ejercicio 4.4) ============
+// Este middleware valida que quien llame a la API tenga la "llave secreta"
+const apiKeyMiddleware = (req, res, next) => {
+  const clientApiKey = req.header('x-api-key');
+  const masterApiKey = process.env.API_KEY_SECRET;
 
+  if (clientApiKey && clientApiKey === masterApiKey) {
+    next();
+  } else {
+    res.status(403).json({ 
+      error: 'Acceso denegado', 
+      detail: 'API Key inválida o ausente en los encabezados.' 
+    });
+  }
+};
+
+// ============ CONEXIÓN A BASE DE DATOS (Nube) ============
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB Atlas Conectado'))
-  .catch(err => console.error('❌ Error MongoDB:', err));
+  .then(() => console.log('✅ MongoDB Atlas Conectado (Cloud)'))
+  .catch(err => console.error('❌ Error MongoDB Cloud:', err));
 
-// ============ MODELOS EXISTENTES (Leños Rellenos) ============
-
+// ============ MODELOS ============
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
@@ -78,17 +92,17 @@ mongoose.connection.once('open', () => {
 
 // ============ RUTAS ============
 
-// Nuevas rutas de la Práctica 2 (JWT & Usuarios)
-app.use('/api/v1/usuario', usuarioRoutes); 
-
-// Rutas de Leños Rellenos (Comentarios y Salud)
-app.use('/api', comentarioRoutes);
-
+// Ruta pública de salud
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy', service: 'Leños Rellenos API' });
+  res.json({ status: 'healthy', service: 'Leños Rellenos API Cloud' });
 });
 
-// LOGIN ANTERIOR (Mantener por compatibilidad con el frontend actual)
+// Rutas protegidas por API KEY
+app.use('/api/v1/usuario', apiKeyMiddleware, usuarioRoutes); 
+app.use('/api/comentarios', apiKeyMiddleware, comentarioRoutes);
+app.use('/api/pedidos', apiKeyMiddleware, Pedido); // Solo si se aplica a todo el router
+
+// Rutas específicas con protección
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -107,8 +121,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// RUTAS DE PEDIDOS
-app.post('/api/pedidos', async (req, res) => {
+app.post('/api/pedidos', apiKeyMiddleware, async (req, res) => {
   try {
     const nuevoPedido = new Pedido(req.body);
     await nuevoPedido.save();
@@ -118,7 +131,7 @@ app.post('/api/pedidos', async (req, res) => {
   }
 });
 
-app.get('/api/pedidos', async (req, res) => {
+app.get('/api/pedidos', apiKeyMiddleware, async (req, res) => {
   try {
     const pedidos = await Pedido.find().sort({ fecha: -1 });
     res.json(pedidos.map(p => ({ id: p._id, ...p.toObject() })));
@@ -128,9 +141,9 @@ app.get('/api/pedidos', async (req, res) => {
 });
 
 // ============ ENCENDIDO DEL SERVIDOR ============
-
+// En Railway es VITAL que el puerto se tome de process.env.PORT
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor activo en puerto ${PORT}`);
+  console.log(`🚀 Servidor resiliente activo en puerto ${PORT}`);
 });
