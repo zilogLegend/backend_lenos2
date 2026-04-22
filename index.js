@@ -5,25 +5,22 @@ const bcrypt = require('bcryptjs');
 const helmet = require('helmet');
 require('dotenv').config();
 
-// 1. IMPORTAR RUTAS (Antes de inicializar app)
+// 1. IMPORTAR RUTAS
 const comentarioRoutes = require('./src/routes/comentarioRoutes');
+const usuarioRoutes = require('./src/routes/usuarios'); // Nueva ruta de Práctica 2
 
 // 2. INICIALIZAR APP
 const app = express();
 
 // ============ CONFIGURACIÓN DE SEGURIDAD ============
 
-// Helmet para proteger cabeceras HTTP
 app.use(helmet());
 
-// Configuración de CORS
 const corsOptions = {
-  origin: 'https://frontend-le-os-production.up.railway.app', 
+  origin: ['https://frontend-le-os-production.up.railway.app', 'http://localhost:5173'], // Añadido localhost para tus pruebas
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
-
-// Middleware para leer JSON
 app.use(express.json());
 
 // ============ CONEXIÓN A BASE DE DATOS ============
@@ -32,7 +29,7 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB Atlas Conectado'))
   .catch(err => console.error('❌ Error MongoDB:', err));
 
-// ============ MODELOS ============
+// ============ MODELOS EXISTENTES (Leños Rellenos) ============
 
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
@@ -65,18 +62,8 @@ const seedUsers = async () => {
     if (count === 0) {
       const hashedPassword = await bcrypt.hash('12345', 10);
       await User.insertMany([
-        {
-          email: 'DBamino11@gmail.com',
-          password: hashedPassword,
-          role: 'client',
-          nombre: 'Cliente'
-        },
-        {
-          email: 'DBamino12@gmail.com',
-          password: hashedPassword,
-          role: 'admin',
-          nombre: 'Administrador'
-        }
+        { email: 'DBamino11@gmail.com', password: hashedPassword, role: 'client', nombre: 'Cliente' },
+        { email: 'DBamino12@gmail.com', password: hashedPassword, role: 'admin', nombre: 'Administrador' }
       ]);
       console.log('✅ Usuarios de prueba creados');
     }
@@ -91,14 +78,17 @@ mongoose.connection.once('open', () => {
 
 // ============ RUTAS ============
 
-// Usar las rutas de comentarios importadas
+// Nuevas rutas de la Práctica 2 (JWT & Usuarios)
+app.use('/api/v1/usuario', usuarioRoutes); 
+
+// Rutas de Leños Rellenos (Comentarios y Salud)
 app.use('/api', comentarioRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', service: 'Leños Rellenos API' });
 });
 
-// LOGIN
+// LOGIN ANTERIOR (Mantener por compatibilidad con el frontend actual)
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -137,16 +127,8 @@ app.get('/api/pedidos', async (req, res) => {
   }
 });
 
-// Endpoint rápido para probar comentarios (en caso de que la ruta externa falle)
-app.post('/comentarios-test', (req, res) => {
-  const { texto } = req.body;
-  console.log("Comentario recibido:", texto);
-  res.json({ texto, status: "recibido" });
-});
-
 // ============ ENCENDIDO DEL SERVIDOR ============
 
-// Railway inyecta el puerto automáticamente en process.env.PORT
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
