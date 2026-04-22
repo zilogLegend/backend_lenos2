@@ -20,15 +20,16 @@ const comentarioLimiter = rateLimit({
 const validarComentario = [
   body('texto')
     .trim()           // Elimina espacios vacíos al inicio y final
-    .escape()         // SANITIZACIÓN: Convierte caracteres peligrosos (como < >) en texto seguro
+    .escape()         // SANITIZACIÓN: Convierte caracteres peligrosos en texto seguro
     .notEmpty().withMessage('El comentario no puede estar vacío')
     .isLength({ max: 200 }).withMessage('El comentario no puede tener más de 200 caracteres')
 ];
 
 // ==========================================
-// RUTA MODIFICADA CON SEGURIDAD
+// RUTA CORREGIDA: Se usa '/' porque el prefijo
+// '/comentarios' ya viene desde el index.js
 // ==========================================
-router.post('/comentarios', comentarioLimiter, validarComentario, async (req, res) => {
+router.post('/', comentarioLimiter, validarComentario, async (req, res) => {
     // Verificar si las validaciones encontraron errores
     const errores = validationResult(req);
     if (!errores.isEmpty()) {
@@ -40,9 +41,12 @@ router.post('/comentarios', comentarioLimiter, validarComentario, async (req, re
             texto: req.body.texto
         });
         await nuevoComentario.save();
+        
+        // Enviamos el objeto guardado de vuelta al frontend
         res.status(201).json(nuevoComentario);
     } catch (error) {
-        res.status(500).json({ error: 'Error al guardar el comentario' });
+        console.error("Error en DB:", error);
+        res.status(500).json({ error: 'Error al guardar el comentario en la base de datos' });
     }
 });
 
