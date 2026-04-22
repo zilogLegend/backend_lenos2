@@ -6,7 +6,6 @@ const rateLimit = require('express-rate-limit'); // Para limitar peticiones
 
 // ==========================================
 // 1.1 CONFIGURACIÓN DE RATE LIMIT (Punto 1.1)
-// Limita a 10 peticiones por minuto por dirección IP
 // ==========================================
 const comentarioLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minuto
@@ -19,33 +18,38 @@ const comentarioLimiter = rateLimit({
 // ==========================================
 const validarComentario = [
   body('texto')
-    .trim()           // Elimina espacios vacíos al inicio y final
-    .escape()         // SANITIZACIÓN: Convierte caracteres peligrosos en texto seguro
+    .trim()           
+    .escape()         // Convierte <script> en texto seguro
     .notEmpty().withMessage('El comentario no puede estar vacío')
     .isLength({ max: 200 }).withMessage('El comentario no puede tener más de 200 caracteres')
 ];
 
 // ==========================================
-// RUTA CORREGIDA: Se usa '/' porque el prefijo
-// '/comentarios' ya viene desde el index.js
+// RUTA CORREGIDA: POST /comentarios
 // ==========================================
 router.post('/', comentarioLimiter, validarComentario, async (req, res) => {
+    console.log("📥 Petición recibida en /comentarios");
+
     // Verificar si las validaciones encontraron errores
     const errores = validationResult(req);
     if (!errores.isEmpty()) {
+        console.log("❌ Error de validación:", errores.array());
         return res.status(400).json({ errors: errores.array() });
     }
 
     try {
+        console.log("🧪 Texto sanitizado:", req.body.texto);
+
         const nuevoComentario = new Comentario({
             texto: req.body.texto
         });
+        
         await nuevoComentario.save();
         
-        // Enviamos el objeto guardado de vuelta al frontend
+        console.log("✅ Comentario guardado en MongoDB Atlas");
         res.status(201).json(nuevoComentario);
     } catch (error) {
-        console.error("Error en DB:", error);
+        console.error("❌ Error en DB:", error);
         res.status(500).json({ error: 'Error al guardar el comentario en la base de datos' });
     }
 });
