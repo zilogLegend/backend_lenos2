@@ -13,3 +13,6 @@ certs/
 .DS_Store
 dist
 dist-ssr
+
+.env
+.env.local
