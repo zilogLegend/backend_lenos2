@@ -99,7 +99,7 @@ app.get('/api/health', (req, res) => {
 
 // Rutas protegidas por API KEY
 app.use('/api/v1/usuario', apiKeyMiddleware, usuarioRoutes); 
-app.use('/api/comentarios', apiKeyMiddleware, comentarioRoutes);
+app.use('/comentarios', apiKeyMiddleware, comentarioRoutes);
 app.use('/api/pedidos', apiKeyMiddleware, Pedido); // Solo si se aplica a todo el router
 
 // Rutas específicas con protección
