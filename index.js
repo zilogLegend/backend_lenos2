@@ -15,16 +15,20 @@ const app = express();
 // ============ CONFIGURACIÓN DE SEGURIDAD (Capa 1) ============
 app.use(helmet());
 
+// AJUSTE DE CORS: Aseguramos que el Frontend tenga permiso de hablar con el Backend
 const corsOptions = {
-  // Asegúrate de que esta URL coincida con tu frontend en Railway o Vercel
-  origin: ['https://frontend-le-os-production.up.railway.app', 'http://localhost:5173'],
+  origin: [
+    'https://frontend-le-os-production.up.railway.app', 
+    'http://localhost:5173'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'x-api-key'],
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
 app.use(express.json());
 
 // ============ MIDDLEWARE API KEY (Capa 2 - Ejercicio 4.4) ============
-// Este middleware valida que quien llame a la API tenga la "llave secreta"
 const apiKeyMiddleware = (req, res, next) => {
   const clientApiKey = req.header('x-api-key');
   const masterApiKey = process.env.API_KEY_SECRET;
@@ -92,18 +96,25 @@ mongoose.connection.once('open', () => {
 
 // ============ RUTAS ============
 
-// Ruta pública de salud
-app.get('/api/health', (req, res) => {
+// Ruta pública de salud (Sin prefijo /api para prueba rápida)
+app.get('/health', (req, res) => {
   res.json({ status: 'healthy', service: 'Leños Rellenos API Cloud' });
 });
 
-// Rutas protegidas por API KEY
-app.use('/api/v1/usuario', apiKeyMiddleware, usuarioRoutes); 
+// Rutas protegidas por API KEY (Simplificadas para producción)
+app.use('/usuario', apiKeyMiddleware, usuarioRoutes); 
 app.use('/comentarios', apiKeyMiddleware, comentarioRoutes);
-app.use('/api/pedidos', apiKeyMiddleware, Pedido); // Solo si se aplica a todo el router
+app.use('/pedidos', apiKeyMiddleware, async (req, res) => {
+  try {
+    const pedidos = await Pedido.find().sort({ fecha: -1 });
+    res.json(pedidos.map(p => ({ id: p._id, ...p.toObject() })));
+  } catch (error) {
+    res.status(500).json({ mensaje: error.message });
+  }
+});
 
 // Rutas específicas con protección
-app.post('/api/auth/login', async (req, res) => {
+app.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
@@ -121,27 +132,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-app.post('/api/pedidos', apiKeyMiddleware, async (req, res) => {
-  try {
-    const nuevoPedido = new Pedido(req.body);
-    await nuevoPedido.save();
-    res.status(201).json({ id: nuevoPedido._id, ...nuevoPedido.toObject() });
-  } catch (error) {
-    res.status(400).json({ mensaje: error.message });
-  }
-});
-
-app.get('/api/pedidos', apiKeyMiddleware, async (req, res) => {
-  try {
-    const pedidos = await Pedido.find().sort({ fecha: -1 });
-    res.json(pedidos.map(p => ({ id: p._id, ...p.toObject() })));
-  } catch (error) {
-    res.status(500).json({ mensaje: error.message });
-  }
-});
-
 // ============ ENCENDIDO DEL SERVIDOR ============
-// En Railway es VITAL que el puerto se tome de process.env.PORT
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
