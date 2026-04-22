@@ -1,0 +1,25 @@
+services:
+  # El servicio de Node.js (Tu lógica)
+  app-logic:
+    build: .
+    restart: always
+    # RESTRICCIÓN DE RED (Punto 2.2): No tiene "ports" hacia afuera, 
+    # solo es accesible por Nginx mediante la red interna de Docker.
+    expose:
+      - "3000"
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
+
+  # El Guardián (Nginx)
+  web-server:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "80:80"   # Puerto HTTP normal
+      - "443:443" # Puerto HTTPS seguro
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro # Para la Fase 3 de TLS
+    depends_on:
+      - app-logic
