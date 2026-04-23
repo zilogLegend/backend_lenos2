@@ -18,7 +18,7 @@ const comentarioLimiter = rateLimit({
 // ==========================================
 const validarComentario = [
   body('texto')
-    .trim()           
+    .trim()
     .escape()         // Convierte <script> en texto seguro
     .notEmpty().withMessage('El comentario no puede estar vacío')
     .isLength({ max: 200 }).withMessage('El comentario no puede tener más de 200 caracteres')
