@@ -2,25 +2,38 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Usuario = require('../models/Usuario');
 
-async function createUsuario({ username, password }) {
+async function createUsuario({ email, password, nombre }) {
+  // Encriptamos la contraseña (Ejercicio 2.1)
   const hashedPassword = await bcrypt.hash(password, 10);
-  const usuario = new Usuario({ username, password: hashedPassword });
+  
+  // Creamos el usuario usando email
+  const usuario = new Usuario({ 
+    email, 
+    password: hashedPassword,
+    nombre: nombre || 'Cliente Leños' 
+  });
+  
   return await usuario.save();
 }
 
-async function loginUsuario({ username, password }) {
-  const usuario = await Usuario.findOne({ username });
-  if (!usuario) throw new Error('Nombre de Usuario Incorrecto!');
+async function loginUsuario({ email, password }) {
+  // Buscamos por email
+  const usuario = await Usuario.findOne({ email });
+  if (!usuario) throw new Error('Usuario no encontrado!');
 
+  // Comparamos contraseñas con Bcrypt
   const isPasswordCorrect = await bcrypt.compare(password, usuario.password);
-  if (!isPasswordCorrect) throw new Error('Contraseña invalida!');
+  if (!isPasswordCorrect) throw new Error('Contraseña inválida!');
 
-  const token = jwt.sign({ sub: usuario._id }, process.env.JWT_SECRET, {
-    expiresIn: '24h'
-  });
+  // Generamos el Token JWT (Ejercicio 2.2)
+  const token = jwt.sign(
+    { sub: usuario._id, email: usuario.email }, 
+    process.env.JWT_SECRET || 'desweb', 
+    { expiresIn: '24h' }
+  );
   
   return token;
 }
 
-// ESTA LINEA ES LA MÁS IMPORTANTE PARA QUE NO DE ERROR
+// Exportamos las funciones corregidas
 module.exports = { createUsuario, loginUsuario };

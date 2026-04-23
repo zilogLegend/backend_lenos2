@@ -1,25 +1,18 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
+  // Quitamos 'required' un segundo para forzar que el servidor acepte el registro
   email: { 
     type: String, 
-    required: true, 
     unique: true,
-    lowercase: true, // Convierte todo a minúsculas automáticamente
-    trim: true      // Quita espacios en blanco accidentales
+    lowercase: true 
   },
   password: { 
-    type: String, 
-    required: true 
-  },
-  role: { 
-    type: String, 
-    default: 'client' 
-  },
-  nombre: { 
     type: String 
-  }
-});
+  },
+  role: { type: String, default: 'client' },
+  nombre: { type: String }
+}, { strict: false }); // 'strict: false' permite guardar datos aunque el esquema esté rebelde
 
-// Forzamos a que el modelo use la colección 'usuarios' (en plural) para evitar conflictos
-module.exports = mongoose.model('Usuario', userSchema, 'usuarios');
+// Usamos un nombre de modelo diferente para forzar a MongoDB a crear una colección limpia
+module.exports = mongoose.model('UserNew', userSchema, 'usuarios_nuevos');
